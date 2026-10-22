@@ -104,10 +104,13 @@ export interface ExportManifest {
   generatedAt: string;
   claim: Claim;
   organization: { id: string; name: string };
+  project: { id: string; name: string; operationalBoundary: string; reportingYear: number } | null;
   activities: Activity[];
   evidences: { id: string; fileName: string; sha256: string; sizeBytes: number }[];
   events: LedgerEvent[];
+  integrity: { valid: boolean; totalEvents: number; message: string };
   warnings: string[];
+  limitations: string[];
 }
 
 export interface SessionState {

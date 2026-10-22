@@ -692,50 +692,113 @@ func (api *API) handleClaims(w http.ResponseWriter, r *http.Request, user *domai
 }
 
 func (api *API) handleClaimDetail(w http.ResponseWriter, r *http.Request, claimID string, user *domain.User) {
-	var claim domain.Claim
-	var totalKg, totalT sql.NullString
+	switch r.Method {
+	case "GET":
+		var claim domain.Claim
+		var totalKg, totalT sql.NullString
 
-	err := api.DB.QueryRow(`
-		SELECT id, organization_id, project_id, title, description, status,
-			total_kg_co2e, total_t_co2e, created_at, updated_at
-		FROM claims WHERE id = $1 AND organization_id = $2
-	`, claimID, user.OrganizationID).Scan(&claim.ID, &claim.OrganizationID, &claim.ProjectID,
-		&claim.Title, &claim.Description, &claim.Status, &totalKg, &totalT,
-		&claim.CreatedAt, &claim.UpdatedAt)
+		err := api.DB.QueryRow(`
+			SELECT id, organization_id, project_id, title, description, status,
+				total_kg_co2e, total_t_co2e, created_at, updated_at
+			FROM claims WHERE id = $1 AND organization_id = $2
+		`, claimID, user.OrganizationID).Scan(&claim.ID, &claim.OrganizationID, &claim.ProjectID,
+			&claim.Title, &claim.Description, &claim.Status, &totalKg, &totalT,
+			&claim.CreatedAt, &claim.UpdatedAt)
 
-	if err != nil {
-		api.writeError(w, http.StatusNotFound, "Claim not found")
-		return
-	}
+		if err != nil {
+			api.writeError(w, http.StatusNotFound, "Claim not found")
+			return
+		}
 
-	claim.TotalKgCO2e = totalKg.String
-	claim.TotalTCO2e = totalT.String
+		claim.TotalKgCO2e = totalKg.String
+		claim.TotalTCO2e = totalT.String
 
-	// Get linked activity IDs
-	rows, err := api.DB.Query("SELECT activity_id FROM claim_activities WHERE claim_id = $1", claimID)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var actID string
-			if err := rows.Scan(&actID); err == nil {
-				claim.ActivityIDs = append(claim.ActivityIDs, actID)
+		// Get linked activity IDs
+		rows, err := api.DB.Query("SELECT activity_id FROM claim_activities WHERE claim_id = $1", claimID)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var actID string
+				if err := rows.Scan(&actID); err == nil {
+					claim.ActivityIDs = append(claim.ActivityIDs, actID)
+				}
 			}
 		}
-	}
 
-	// Get linked evidence IDs
-	rows2, err := api.DB.Query("SELECT evidence_id FROM claim_evidence WHERE claim_id = $1", claimID)
-	if err == nil {
-		defer rows2.Close()
-		for rows2.Next() {
-			var evID string
-			if err := rows2.Scan(&evID); err == nil {
-				claim.EvidenceIDs = append(claim.EvidenceIDs, evID)
+		// Get linked evidence IDs
+		rows2, err := api.DB.Query("SELECT evidence_id FROM claim_evidence WHERE claim_id = $1", claimID)
+		if err == nil {
+			defer rows2.Close()
+			for rows2.Next() {
+				var evID string
+				if err := rows2.Scan(&evID); err == nil {
+					claim.EvidenceIDs = append(claim.EvidenceIDs, evID)
+				}
 			}
 		}
-	}
 
-	api.writeJSON(w, http.StatusOK, claim)
+		api.writeJSON(w, http.StatusOK, claim)
+
+	case "PUT":
+		// Update claim status with validation
+		var req struct {
+			Status string `json:"status"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			api.writeError(w, http.StatusBadRequest, "Invalid request")
+			return
+		}
+
+		// Get current status
+		var currentStatus string
+		err := api.DB.QueryRow("SELECT status FROM claims WHERE id = $1 AND organization_id = $2",
+			claimID, user.OrganizationID).Scan(&currentStatus)
+		if err != nil {
+			api.writeError(w, http.StatusNotFound, "Claim not found")
+			return
+		}
+
+		// Validate transition
+		validTransitions := map[string][]string{
+			"DRAFT":              {"READY_FOR_REVIEW"},
+			"READY_FOR_REVIEW":   {"REVIEWED_INTERNAL", "REJECTED_INTERNAL", "DRAFT"},
+			"REVIEWED_INTERNAL":  {"DRAFT"},
+			"REJECTED_INTERNAL":  {"DRAFT"},
+		}
+
+		valid := false
+		for _, allowed := range validTransitions[currentStatus] {
+			if allowed == req.Status {
+				valid = true
+				break
+			}
+		}
+
+		if !valid {
+			api.writeError(w, http.StatusBadRequest,
+				fmt.Sprintf("Invalid status transition: %s → %s", currentStatus, req.Status))
+			return
+		}
+
+		// Update status
+		_, err = api.DB.Exec("UPDATE claims SET status = $1, updated_at = NOW() WHERE id = $2",
+			req.Status, claimID)
+		if err != nil {
+			api.writeError(w, http.StatusInternalServerError, "Failed to update status")
+			return
+		}
+
+		// Record event with previous status
+		api.createEvent(claimID, user.ID, "STATUS_CHANGED", map[string]interface{}{
+			"from": currentStatus,
+			"to":   req.Status,
+		})
+
+		api.writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+
+	default:
+		api.writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
+	}
 }
 
 func (api *API) handleClaimEvents(w http.ResponseWriter, r *http.Request, claimID string, user *domain.User) {

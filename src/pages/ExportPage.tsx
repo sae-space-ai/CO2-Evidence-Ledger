@@ -86,9 +86,27 @@ export default function ExportPage() {
                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
                   <span><strong>Título:</strong> {manifest.claim.title}</span>
                   <span><strong>Estado:</strong> {manifest.claim.status}</span>
-                  <span><strong>Total:</strong> {manifest.claim.totalTCO2e} tCO2e</span>
+                  <span><strong>Total:</strong> {manifest.claim.totalTCO2e || '—'} tCO2e</span>
                   <span><strong>Organización:</strong> {manifest.organization.name}</span>
+                  {manifest.project && (
+                    <>
+                      <span><strong>Proyecto:</strong> {manifest.project.name}</span>
+                      <span><strong>Año reporte:</strong> {manifest.project.reportingYear}</span>
+                      <span className="col-span-2"><strong>Límite operacional:</strong> {manifest.project.operationalBoundary}</span>
+                    </>
+                  )}
                 </div>
+              </div>
+
+              {/* Integrity status */}
+              <div className={`p-3 rounded-md border ${manifest.integrity.valid ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                <h3 className={`text-sm font-semibold mb-2 ${manifest.integrity.valid ? 'text-emerald-800' : 'text-red-800'}`}>
+                  <i className={`fa-solid ${manifest.integrity.valid ? 'fa-shield-check' : 'fa-shield-xmark'} mr-1`}></i>
+                  Integridad de cadena
+                </h3>
+                <p className={`text-xs ${manifest.integrity.valid ? 'text-emerald-700' : 'text-red-700'}`}>
+                  {manifest.integrity.message}
+                </p>
               </div>
 
               {/* Activities */}
@@ -130,6 +148,18 @@ export default function ExportPage() {
                 <ul className="text-xs text-amber-700 space-y-1">
                   {manifest.warnings.map((w, i) => (
                     <li key={i}>• {w}</li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Limitations */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+                <h3 className="text-sm font-semibold text-slate-800 mb-2">
+                  <i className="fa-solid fa-circle-info mr-1"></i> Limitaciones técnicas
+                </h3>
+                <ul className="text-xs text-slate-600 space-y-1">
+                  {manifest.limitations.map((l, i) => (
+                    <li key={i}>• {l}</li>
                   ))}
                 </ul>
               </div>

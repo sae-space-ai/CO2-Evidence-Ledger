@@ -226,19 +226,42 @@ export default function ClaimDetailPage() {
                   <div key={evt.eventId} className="relative pl-10">
                     <div className="absolute left-2.5 top-1.5 w-3 h-3 rounded-full bg-slate-300 border-2 border-white"></div>
                     <div className="p-3 bg-slate-50 rounded-md">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <Badge variant={getEventVariant(evt.type)}>{formatEventType(evt.type)}</Badge>
                           <span className="text-[11px] text-slate-500">{evt.actorName}</span>
                         </div>
                         <span className="text-[10px] text-slate-400">{new Date(evt.timestamp).toLocaleString('es-ES')}</span>
                       </div>
-                      <div className="mt-1.5 text-[10px] font-mono text-slate-400 break-all">
-                        Hash: {evt.eventHash.substring(0, 40)}...
+                      
+                      {/* Show status changes clearly */}
+                      {evt.type === 'STATUS_CHANGED' && evt.payload && (
+                        <div className="mb-2 p-2 bg-white rounded border border-slate-200">
+                          <div className="flex items-center gap-2 text-xs">
+                            <StatusBadge status={String(evt.payload.from || '')} />
+                            <i className="fa-solid fa-arrow-right text-slate-400"></i>
+                            <StatusBadge status={String(evt.payload.to || '')} />
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Show other payload data */}
+                      {evt.type !== 'STATUS_CHANGED' && evt.payload && Object.keys(evt.payload).length > 0 && (
+                        <div className="mb-2 p-2 bg-white rounded border border-slate-200 text-[11px] text-slate-600">
+                          {Object.entries(evt.payload).map(([key, value]) => (
+                            <div key={key}>
+                              <span className="font-medium">{key}:</span> {String(value)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      <div className="text-[10px] font-mono text-slate-400 break-all">
+                        <span className="text-slate-500">Hash:</span> {evt.eventHash.substring(0, 40)}...
                       </div>
                       {evt.previousHash && (
                         <div className="text-[10px] font-mono text-slate-300 break-all">
-                          Prev: {evt.previousHash.substring(0, 40)}...
+                          <span className="text-slate-400">Prev:</span> {evt.previousHash.substring(0, 40)}...
                         </div>
                       )}
                     </div>

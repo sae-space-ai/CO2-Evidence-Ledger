@@ -291,11 +291,27 @@ export const mockApi = {
     const claims = getStorage<Claim[]>('claims', []);
     const idx = claims.findIndex(c => c.id === claimId);
     if (idx === -1) throw new Error('Declaración no encontrada');
+    
+    // Capturar estado ANTES de actualizar
+    const previousStatus = claims[idx].status;
+    
+    // Validar transición de estado
+    const validTransitions: Record<ClaimStatus, ClaimStatus[]> = {
+      'DRAFT': ['READY_FOR_REVIEW'],
+      'READY_FOR_REVIEW': ['REVIEWED_INTERNAL', 'REJECTED_INTERNAL', 'DRAFT'],
+      'REVIEWED_INTERNAL': ['DRAFT'],
+      'REJECTED_INTERNAL': ['DRAFT'],
+    };
+    
+    if (!validTransitions[previousStatus]?.includes(status)) {
+      throw new Error(`Transición de estado inválida: ${previousStatus} → ${status}`);
+    }
+    
     claims[idx].status = status;
     claims[idx].updatedAt = new Date().toISOString();
     setStorage('claims', claims);
     
-    await this.addEvent(claimId, 'STATUS_CHANGED', { from: claims[idx].status, to: status });
+    await this.addEvent(claimId, 'STATUS_CHANGED', { from: previousStatus, to: status });
     return claims[idx];
   },
 
@@ -434,6 +450,9 @@ export const mockApi = {
     const orgs = getStorage<Organization[]>('organizations', []);
     const org = orgs.find(o => o.id === claim.organizationId);
     
+    const projects = getStorage<Project[]>('projects', []);
+    const project = projects.find(p => p.id === claim.projectId) || null;
+    
     const activities = getStorage<Activity[]>('activities', []);
     const claimActivities = activities.filter(a => claim.activityIds.includes(a.id));
     
@@ -441,13 +460,22 @@ export const mockApi = {
     const claimEvidences = evidences.filter(e => claim.evidenceIds.includes(e.id));
     
     const events = getStorage<LedgerEvent[]>('events', []);
-    const claimEvents = events.filter(e => e.claimId === claimId);
+    const claimEvents = events.filter(e => e.claimId === claimId).sort((a, b) => a.sequence - b.sequence);
+
+    // Verificar integridad de la cadena
+    const integrity = await this.verifyChain(claimId);
 
     const manifest: ExportManifest = {
       version: '1.0.0',
       generatedAt: new Date().toISOString(),
       claim,
       organization: { id: org?.id ?? '', name: org?.name ?? 'Desconocida' },
+      project: project ? {
+        id: project.id,
+        name: project.name,
+        operationalBoundary: project.operationalBoundary,
+        reportingYear: project.reportingYear,
+      } : null,
       activities: claimActivities,
       evidences: claimEvidences.map(e => ({
         id: e.id,
@@ -456,12 +484,23 @@ export const mockApi = {
         sizeBytes: e.sizeBytes,
       })),
       events: claimEvents,
+      integrity: {
+        valid: integrity.valid,
+        totalEvents: integrity.totalEvents,
+        message: integrity.message,
+      },
       warnings: [
         'Este paquete NO tiene anclaje temporal de confianza externa.',
         'La cadena de hashes es interna al sistema; un administrador con acceso a la base podría reconstruirla.',
         'Los factores de emisión fueron suministrados por el usuario; no han sido validados por este sistema.',
         'REVIEWED_INTERNAL no equivale a verificación por tercero independiente.',
         'Este expediente no constituye una certificación de huella de carbono.',
+      ],
+      limitations: [
+        'El SHA-256 demuestra coincidencia de bytes, no contenido, autoría ni fecha ante terceros.',
+        'La cadena append-only protege contra modificaciones accidentales pero no contra reescritura por administrador.',
+        'Scope 3 y créditos de carbono no están incluidos en esta fase.',
+        'No se ha realizado verificación metodológica del inventario.',
       ],
     };
 

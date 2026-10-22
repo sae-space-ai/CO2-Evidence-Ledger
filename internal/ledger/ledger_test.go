@@ -14,11 +14,13 @@ func TestCanonicalize(t *testing.T) {
 		{"null", nil, "null"},
 		{"string", "hello", `"hello"`},
 		{"number_int", 42, "42"},
+		{"number_float", 3.14, "3.14"},
 		{"bool_true", true, "true"},
 		{"bool_false", false, "false"},
 		{"empty_object", map[string]interface{}{}, "{}"},
 		{"empty_array", []interface{}{}, "[]"},
 		{"sorted_keys", map[string]interface{}{"b": 2, "a": 1}, `{"a":1,"b":2}`},
+		{"nested", map[string]interface{}{"z": map[string]interface{}{"y": 1, "x": 2}}, `{"z":{"x":2,"y":1}}`},
 	}
 
 	for _, tt := range tests {

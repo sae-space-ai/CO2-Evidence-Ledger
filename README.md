@@ -2,60 +2,78 @@
 
 **Evidencia trazable para declaraciones climáticas responsables**
 
-## Estado actual
+## 🚀 Inicio Rápido
 
-**Fase 01 — Backend Go + PostgreSQL + Frontend conectado**
-
-Este repositorio contiene:
-- ✅ Backend Go completo (API REST, autenticación Argon2id, PostgreSQL)
-- ✅ Migraciones SQL para esquema completo
-- ✅ Frontend React con detección automática de modo (demo/producción)
-- ✅ Docker Compose para desarrollo local
-- ✅ Verificador offline de paquetes
-- ✅ Documentación técnica completa
-
-## Arquitectura
-
-```
-Frontend (React + Vite) ←→ Backend (Go) ←→ PostgreSQL
-         ↓                      ↓
-    localStorage          Argon2id + Sesiones
-    (modo demo)           Cadena append-only
-                          SHA-256 de evidencias
-```
-
-## Inicio rápido
-
-### Modo demo (sin backend)
+### Modo Demo (sin backend)
 
 ```bash
+# 1. Instalar dependencias
 npm install
+
+# 2. Iniciar servidor de desarrollo
 npm run dev
-# Abre http://localhost:5173
+
+# 3. Abrir http://localhost:5173
 # Credenciales: demo@co2evidence.local (cualquier contraseña)
 ```
 
-En modo demo, todos los datos se almacenan en localStorage del navegador. El hashing SHA-256 de archivos SÍ se calcula en tiempo real.
-
-### Modo producción (con backend)
+### Modo Producción (con backend completo)
 
 ```bash
-# 1. Copiar variables de entorno
-cp .env.example .env
-# Editar .env con valores seguros
+# Configuración automática completa
+bash scripts/setup.sh
 
-# 2. Levantar con Docker Compose
-docker-compose up -d
-
-# 3. Ejecutar bootstrap (crear admin inicial)
-docker-compose exec api /app/bootstrap
-
-# 4. Acceder
-# Frontend: http://localhost:3000
-# API: http://localhost:8080
+# O manualmente:
+make setup
 ```
 
-## Estructura del proyecto
+## 📋 Comandos Automatizados
+
+### Makefile (recomendado)
+
+```bash
+make help              # Ver todos los comandos disponibles
+make setup             # Configuración completa del entorno
+make dev               # Servidor de desarrollo
+make build             # Build de producción
+make test              # Ejecutar todos los tests
+make docker-up         # Levantar servicios Docker
+make docker-down       # Detener servicios
+make verify            # Verificación completa
+make ci                # Pipeline CI completo
+```
+
+### Scripts
+
+```bash
+bash scripts/setup.sh    # Configuración automática
+bash scripts/test.sh     # Suite de tests completa
+bash scripts/ci.sh       # Pipeline CI/CD local
+bash scripts/verify.sh   # Verificación del sistema
+```
+
+## 🏗️ Arquitectura
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Frontend (React + Vite + TypeScript)                      │
+│  • Autenticación con cookies HttpOnly                      │
+│  • Gestión de proyectos, actividades, evidencias           │
+│  • Visualización de cadena de eventos                      │
+│  • Detección automática de modo (demo/producción)          │
+└────────────────────────┬────────────────────────────────────┘
+                         │ REST API
+                         ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Backend (Go + PostgreSQL)                                 │
+│  • Autenticación Argon2id                                  │
+│  • Cálculo exacto de emisiones (math/big.Rat)              │
+│  • Cadena append-only con SHA-256                          │
+│  • Aislamiento multi-tenant                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 📁 Estructura del Proyecto
 
 ```
 co2evidence-ledger/
@@ -71,105 +89,108 @@ co2evidence-ledger/
 │   ├── httpapi/              # Handlers REST
 │   └── ledger/               # Cadena de eventos
 ├── migrations/               # SQL versionado
+├── scripts/
+│   ├── setup.sh             # Configuración automática
+│   ├── test.sh              # Suite de tests
+│   ├── ci.sh                # Pipeline CI
+│   └── verify.sh            # Verificación
 ├── src/                      # Frontend React
-│   ├── api.ts               # Cliente API (detecta modo)
-│   ├── services.mock.ts     # Mock para demo
-│   └── pages/               # Páginas de la UI
+├── docs/                     # Documentación
 ├── docker-compose.yml
-├── Dockerfile                # Backend Go
-├── Dockerfile.frontend       # Frontend React
-└── docs/                     # Documentación
+├── Makefile                  # Comandos automatizados
+└── README.md
 ```
 
-## Funcionalidades implementadas
+## ✅ Tests Automatizados
 
-### Backend Go
-- ✅ Autenticación con Argon2id
-- ✅ Sesiones con cookies HttpOnly, Secure, SameSite
-- ✅ API REST completa (/api/v1/*)
-- ✅ Cálculo exacto de emisiones (math/big.Rat)
-- ✅ Cadena append-only de eventos con SHA-256
-- ✅ Almacenamiento de evidencias (BYTEA)
-- ✅ Detección de duplicados por hash
-- ✅ Aislamiento multi-tenant
-- ✅ Migraciones SQL versionadas
+```bash
+# Todos los tests
+make test
 
-### Frontend React
-- ✅ Detección automática de modo (demo/producción)
-- ✅ Login con credenciales
-- ✅ Dashboard con estado del sistema
-- ✅ Gestión de proyectos
-- ✅ Registro de actividades (Scope 1 y 2)
-- ✅ Subida de evidencias con SHA-256 real
-- ✅ Declaraciones con cronología auditable
-- ✅ Verificación de integridad de cadenas
-- ✅ Exportación de manifiestos
-- ✅ Página de alcance y limitaciones
-- ✅ Diseño responsive y accesible
+# Solo frontend
+make test-frontend
 
-### Herramientas
-- ✅ Verificador offline (cmd/verify-package)
-- ✅ Bootstrap CLI (cmd/bootstrap)
-- ✅ Docker Compose para desarrollo
-- ✅ Documentación completa
+# Solo backend
+make test-go
 
-## Endpoints API
+# Con cobertura
+make go-test-coverage
+
+# Suite completa
+bash scripts/test.sh
+```
+
+## 🔒 Seguridad
+
+- **Contraseñas:** Argon2id (m=64MB, t=3, p=2)
+- **Sesiones:** Tokens aleatorios, hash SHA-256, expiración 24h
+- **Cookies:** HttpOnly, Secure, SameSite=Strict
+- **SQL:** Parametrizado en todas las consultas
+- **Multi-tenant:** Aislamiento por organización
+- **Archivos:** Validación MIME, límite 3MB, nombres saneados
+
+## 📊 Endpoints API
 
 | Método | Ruta | Descripción |
 |--------|------|-------------|
-| GET | /api/health | Estado del servicio |
-| GET | /api/ready | Verificación de PostgreSQL |
-| POST | /api/v1/auth/login | Autenticación |
-| POST | /api/v1/auth/logout | Cerrar sesión |
-| GET | /api/v1/auth/me | Usuario actual |
-| GET/POST | /api/v1/organizations | Organizaciones |
-| GET/POST | /api/v1/projects | Proyectos |
-| GET/POST | /api/v1/activities | Actividades |
-| GET/POST | /api/v1/evidence | Evidencias |
-| GET/POST | /api/v1/claims | Declaraciones |
-| GET | /api/v1/claims/:id/events | Eventos de claim |
-| POST | /api/v1/claims/:id/evidence | Vincular evidencia |
-| POST | /api/v1/claims/:id/activities | Vincular actividad |
+| GET | `/api/health` | Estado del servicio |
+| GET | `/api/ready` | Verificación PostgreSQL |
+| POST | `/api/v1/auth/login` | Autenticación |
+| POST | `/api/v1/auth/logout` | Cerrar sesión |
+| GET | `/api/v1/auth/me` | Usuario actual |
+| GET/POST | `/api/v1/organizations` | Organizaciones |
+| GET/POST | `/api/v1/projects` | Proyectos |
+| GET/POST | `/api/v1/activities` | Actividades |
+| GET/POST | `/api/v1/evidence` | Evidencias |
+| GET/POST | `/api/v1/claims` | Declaraciones |
 
-## Credenciales demo
-
-| Email | Rol | Organización |
-|-------|-----|--------------|
-| demo@co2evidence.local | Owner | Mi Empresa Demo S.L. |
-| admin@org.test | Reviewer | Consultora Sostenibilidad S.A. |
-
-Cualquier contraseña funciona en modo demo.
-
-## Variables de entorno
+## 🐳 Docker
 
 ```bash
-DATABASE_URL=postgres://user:pass@host:5432/dbname
-SESSION_SECRET=random_64_char_string
-PORT=8080
-VITE_API_URL=http://localhost:8080  # Frontend dev
+# Levantar todo
+make docker-up
+
+# Ver logs
+make docker-logs
+
+# Detener
+make docker-down
+
+# Reiniciar
+make docker-restart
 ```
 
-## Documentación
+## 📚 Documentación
 
-- [Constitución del producto](docs/PRODUCT_CONSTITUTION.md)
-- [Arquitectura técnica](docs/ARCHITECTURE.md)
-- [Reglas para agentes](AGENTS.md)
+- [Constitución del Producto](docs/PRODUCT_CONSTITUTION.md)
+- [Arquitectura Técnica](docs/ARCHITECTURE.md)
+- [Criterios de Aceptación](docs/PHASE_00_ACCEPTANCE.md)
+- [Reglas para Agentes](AGENTS.md)
 
-## Limitaciones
+## ⚠️ Limitaciones
 
-- **Sin anclaje temporal externo**: La cadena es interna; un admin podría reconstruirla
-- **Sin verificación de terceros**: REVIEWED_INTERNAL ≠ auditoría independiente
-- **Sin validación de factores**: Los factores son aportados por el usuario
-- **Sin Scope 3**: Solo Scope 1 y 2 en Fase 00/01
-- **Sin créditos de carbono**: Ninguna operación de trading
+- Sin anclaje temporal externo (cadena interna)
+- Sin verificación de terceros (REVIEWED_INTERNAL ≠ auditoría)
+- Sin validación de factores (aportados por usuario)
+- Sin Scope 3 (solo Scope 1 y 2)
+- Sin créditos de carbono (ninguna operación de trading)
 
-## Próximas fases
+## 🔧 Desarrollo
 
-- **Fase 02**: Tests de integración con PostgreSQL real
-- **Fase 03**: Anclaje temporal externo (RFC 3161)
-- **Fase 04**: Almacenamiento S3-compatible
-- **Fase 05**: API pública para verificadores
+```bash
+# Setup completo
+make setup
 
-## Licencia
+# Desarrollo diario
+make dev
+
+# Antes de commit
+make test-all
+
+# Verificación completa
+make verify
+```
+
+## 📝 Licencia
 
 Pendiente de definir por el propietario del producto.

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
@@ -86,10 +87,8 @@ func GenerateSessionToken() (string, error) {
 
 // HashToken creates a SHA-256 hash of a session token for storage
 func HashToken(token string) string {
-	// In production, use crypto/sha256
-	// For now, simplified
-	hash := argon2.IDKey([]byte(token), []byte("session-salt"), 1, 32*1024, 2, 32)
-	return hex.EncodeToString(hash)
+	hash := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(hash[:])
 }
 
 // SessionExpiry returns the session expiry time (24 hours)

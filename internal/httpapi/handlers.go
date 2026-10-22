@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 	"math/big"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -307,10 +307,10 @@ func (api *API) handleProjects(w http.ResponseWriter, r *http.Request, user *dom
 
 	case "POST":
 		var req struct {
-			Name               string `json:"name"`
-			Description        string `json:"description"`
+			Name                string `json:"name"`
+			Description         string `json:"description"`
 			OperationalBoundary string `json:"operationalBoundary"`
-			ReportingYear      int    `json:"reportingYear"`
+			ReportingYear       int    `json:"reportingYear"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			api.writeError(w, http.StatusBadRequest, "Invalid request")
@@ -541,10 +541,10 @@ func (api *API) handleEvidence(w http.ResponseWriter, r *http.Request, user *dom
 		if err == nil {
 			// Duplicate found
 			api.writeJSON(w, http.StatusConflict, map[string]interface{}{
-				"duplicate":   true,
-				"existingId":  existingID,
-				"sha256":      hash,
-				"message":     "Exact match detected. Not fraud; may be legitimate reuse.",
+				"duplicate":  true,
+				"existingId": existingID,
+				"sha256":     hash,
+				"message":    "Exact match detected. Not fraud; may be legitimate reuse.",
 			})
 			return
 		}
@@ -692,8 +692,50 @@ func (api *API) handleClaims(w http.ResponseWriter, r *http.Request, user *domai
 }
 
 func (api *API) handleClaimDetail(w http.ResponseWriter, r *http.Request, claimID string, user *domain.User) {
-	// Implementation similar to other handlers
-	api.writeJSON(w, http.StatusOK, map[string]string{"claimId": claimID})
+	var claim domain.Claim
+	var totalKg, totalT sql.NullString
+
+	err := api.DB.QueryRow(`
+		SELECT id, organization_id, project_id, title, description, status,
+			total_kg_co2e, total_t_co2e, created_at, updated_at
+		FROM claims WHERE id = $1 AND organization_id = $2
+	`, claimID, user.OrganizationID).Scan(&claim.ID, &claim.OrganizationID, &claim.ProjectID,
+		&claim.Title, &claim.Description, &claim.Status, &totalKg, &totalT,
+		&claim.CreatedAt, &claim.UpdatedAt)
+
+	if err != nil {
+		api.writeError(w, http.StatusNotFound, "Claim not found")
+		return
+	}
+
+	claim.TotalKgCO2e = totalKg.String
+	claim.TotalTCO2e = totalT.String
+
+	// Get linked activity IDs
+	rows, err := api.DB.Query("SELECT activity_id FROM claim_activities WHERE claim_id = $1", claimID)
+	if err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var actID string
+			if err := rows.Scan(&actID); err == nil {
+				claim.ActivityIDs = append(claim.ActivityIDs, actID)
+			}
+		}
+	}
+
+	// Get linked evidence IDs
+	rows2, err := api.DB.Query("SELECT evidence_id FROM claim_evidence WHERE claim_id = $1", claimID)
+	if err == nil {
+		defer rows2.Close()
+		for rows2.Next() {
+			var evID string
+			if err := rows2.Scan(&evID); err == nil {
+				claim.EvidenceIDs = append(claim.EvidenceIDs, evID)
+			}
+		}
+	}
+
+	api.writeJSON(w, http.StatusOK, claim)
 }
 
 func (api *API) handleClaimEvents(w http.ResponseWriter, r *http.Request, claimID string, user *domain.User) {
@@ -715,7 +757,7 @@ func (api *API) handleClaimEvents(w http.ResponseWriter, r *http.Request, claimI
 			&payloadJSON, &e.PreviousHash, &e.EventHash, &e.Timestamp); err != nil {
 			continue
 		}
-		json.Unmarshal(payloadJSON, &e.Payload)
+		_ = json.Unmarshal(payloadJSON, &e.Payload)
 		events = append(events, e)
 	}
 
@@ -795,13 +837,13 @@ func (api *API) authenticateRequest(r *http.Request) (*domain.User, error) {
 func (api *API) createEvent(claimID, actorID, eventType string, payload map[string]interface{}) {
 	// Get next sequence
 	var seq int
-	api.DB.QueryRow(`
+	_ = api.DB.QueryRow(`
 		SELECT COALESCE(MAX(sequence), 0) + 1 FROM claim_events WHERE claim_id = $1
 	`, claimID).Scan(&seq)
 
 	// Get previous hash
 	var prevHash string
-	api.DB.QueryRow(`
+	_ = api.DB.QueryRow(`
 		SELECT event_hash FROM claim_events WHERE claim_id = $1 ORDER BY sequence DESC LIMIT 1
 	`, claimID).Scan(&prevHash)
 
@@ -828,7 +870,7 @@ func (api *API) createEvent(claimID, actorID, eventType string, payload map[stri
 func (api *API) writeJSON(w http.ResponseWriter, status int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
+	_ = json.NewEncoder(w).Encode(data)
 }
 
 func (api *API) writeError(w http.ResponseWriter, status int, message string) {
@@ -850,6 +892,3 @@ func sanitizeFilename(name string) string {
 func sha256Sum(data []byte) [32]byte {
 	return sha256.Sum256(data)
 }
-
-// Unused import prevention
-var _ = strconv.Itoa

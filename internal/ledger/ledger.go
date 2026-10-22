@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -22,11 +23,57 @@ type CanonicalPayload struct {
 // Canonicalize produces a deterministic JSON representation
 // Keys are sorted alphabetically, no extra whitespace
 func Canonicalize(v interface{}) string {
-	data, err := json.Marshal(v)
-	if err != nil {
-		return "{}"
+	return canonicalizeValue(v)
+}
+
+func canonicalizeValue(v interface{}) string {
+	if v == nil {
+		return "null"
 	}
-	return string(data)
+
+	switch val := v.(type) {
+	case bool:
+		if val {
+			return "true"
+		}
+		return "false"
+	case int:
+		return fmt.Sprintf("%d", val)
+	case int64:
+		return fmt.Sprintf("%d", val)
+	case float64:
+		return fmt.Sprintf("%g", val)
+	case string:
+		// Escape string for JSON
+		escaped, _ := json.Marshal(val)
+		return string(escaped)
+	case []interface{}:
+		items := make([]string, len(val))
+		for i, item := range val {
+			items[i] = canonicalizeValue(item)
+		}
+		return "[" + strings.Join(items, ",") + "]"
+	case map[string]interface{}:
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		
+		pairs := make([]string, len(keys))
+		for i, k := range keys {
+			keyJSON, _ := json.Marshal(k)
+			pairs[i] = string(keyJSON) + ":" + canonicalizeValue(val[k])
+		}
+		return "{" + strings.Join(pairs, ",") + "}"
+	default:
+		// Fallback to json.Marshal for other types
+		data, err := json.Marshal(v)
+		if err != nil {
+			return "null"
+		}
+		return string(data)
+	}
 }
 
 // ComputeEventHash calculates SHA-256 of the canonical payload
@@ -40,9 +87,9 @@ func ComputeEventHash(payload CanonicalPayload) string {
 func VerifyChain(events []EventRecord) (*VerificationResult, error) {
 	if len(events) == 0 {
 		return &VerificationResult{
-			Valid:        true,
-			TotalEvents:  0,
-			Message:      "No events to verify",
+			Valid:       true,
+			TotalEvents: 0,
+			Message:     "No events to verify",
 		}, nil
 	}
 

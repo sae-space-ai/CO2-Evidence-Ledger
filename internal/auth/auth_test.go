@@ -85,6 +85,28 @@ func TestGenerateSessionToken(t *testing.T) {
 	}
 }
 
+func TestHashToken(t *testing.T) {
+	token := "test_token_123"
+	hash1 := HashToken(token)
+	hash2 := HashToken(token)
+
+	// Same token should produce same hash
+	if hash1 != hash2 {
+		t.Error("HashToken should be deterministic")
+	}
+
+	// Hash should be 64 hex chars (SHA-256)
+	if len(hash1) != 64 {
+		t.Errorf("Hash length = %d, want 64", len(hash1))
+	}
+
+	// Different token should produce different hash
+	hash3 := HashToken("different_token")
+	if hash1 == hash3 {
+		t.Error("Different tokens should produce different hashes")
+	}
+}
+
 func TestValidatePasswordStrength(t *testing.T) {
 	tests := []struct {
 		password string
@@ -105,17 +127,15 @@ func TestValidatePasswordStrength(t *testing.T) {
 }
 
 func TestSessionExpiry(t *testing.T) {
+	before := time.Now()
 	expiry := SessionExpiry()
-	now := SessionExpiry() // Just to get current time approximation
+	after := time.Now()
 
-	// Expiry should be in the future
-	if !expiry.After(now.Add(-time.Second)) {
-		t.Error("Session expiry should be in the future")
-	}
+	// Expiry should be approximately 24 hours from now
+	expectedMin := before.Add(24 * time.Hour)
+	expectedMax := after.Add(24 * time.Hour)
 
-	// Should be approximately 24 hours from now
-	diff := expiry.Sub(now)
-	if diff < 23*time.Hour || diff > 25*time.Hour {
-		t.Errorf("Session expiry diff = %v, want ~24h", diff)
+	if expiry.Before(expectedMin) || expiry.After(expectedMax) {
+		t.Errorf("Session expiry = %v, want between %v and %v", expiry, expectedMin, expectedMax)
 	}
 }

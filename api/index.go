@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"os"
 
 	"github.com/co2evidence/ledger/internal/db"
 	"github.com/co2evidence/ledger/internal/httpapi"
@@ -43,18 +42,4 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	api.ServeHTTP(w, r)
-}
-
-// For local development
-func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		Handler(w, r)
-	})
-
-	http.ListenAndServe(":"+port, nil)
 }

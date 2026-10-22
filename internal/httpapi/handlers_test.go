@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"math/big"
+	"strings"
 	"testing"
 )
 
@@ -129,12 +130,11 @@ func TestSanitizeFilename(t *testing.T) {
 		{"file with spaces.txt", "file_with_spaces.txt"},
 		{"../../../etc/passwd", "_______etc_passwd"},
 		{"file<script>.html", "file_script_.html"},
-		{"very_long_" + string(make([]byte, 300)), ""}, // Will be truncated
 	}
 
 	for _, tt := range tests {
 		result := sanitizeFilename(tt.input)
-		if tt.expected != "" && result != tt.expected {
+		if result != tt.expected {
 			t.Errorf("sanitizeFilename(%q) = %q, want %q", tt.input, result, tt.expected)
 		}
 		// Check no path separators
@@ -145,5 +145,13 @@ func TestSanitizeFilename(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestSanitizeFilenameLength(t *testing.T) {
+	longName := strings.Repeat("a", 300)
+	result := sanitizeFilename(longName)
+	if len(result) > 200 {
+		t.Errorf("sanitizeFilename should truncate to 200 chars, got %d", len(result))
 	}
 }

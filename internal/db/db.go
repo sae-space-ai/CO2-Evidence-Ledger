@@ -27,6 +27,7 @@ func Connect() (*Database, error) {
 
 	// Test connection
 	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 

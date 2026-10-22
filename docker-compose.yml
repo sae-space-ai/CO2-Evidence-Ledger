@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: co2evidence-postgres
+    environment:
+      POSTGRES_DB: co2evidence
+      POSTGRES_USER: co2admin
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme_in_production}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U co2admin -d co2evidence"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: co2evidence-api
+    environment:
+      DATABASE_URL: postgres://co2admin:${DB_PASSWORD:-changeme_in_production}@postgres:5432/co2evidence?sslmode=disable
+      SESSION_SECRET: ${SESSION_SECRET:-changeme_in_production}
+      PORT: "8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: co2evidence-frontend
+    ports:
+      - "3000:80"
+    environment:
+      VITE_API_URL: http://localhost:8080
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -13,6 +13,7 @@ import ClaimDetailPage from './pages/ClaimDetailPage';
 import IntegrityPage from './pages/IntegrityPage';
 import ExportPage from './pages/ExportPage';
 import LimitationsPage from './pages/LimitationsPage';
+import PresentationPage from './pages/PresentationPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -66,6 +67,7 @@ function AppRoutes() {
       <Route path="/integrity" element={<ProtectedRoute><IntegrityPage /></ProtectedRoute>} />
       <Route path="/export" element={<ProtectedRoute><ExportPage /></ProtectedRoute>} />
       <Route path="/limitations" element={<ProtectedRoute><LimitationsPage /></ProtectedRoute>} />
+      <Route path="/presentation" element={<PresentationPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
